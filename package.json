@@ -4,6 +4,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "install": "npm install csv-parser dotenv express moment",
     "start": "node index.js"
   },
   "keywords": [],
