@@ -3,7 +3,12 @@ const csv = require('csv-parser');
 const fs = require('fs');
 const moment = require('moment');
 const stats = require('simple-statistics');
+const { exec } = require('child_process');
 require('dotenv').config();
+
+const getCarlos = matchI => {
+    
+};
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -89,18 +94,30 @@ app.get('/rankings', (req, res) => {
 });
 
 app.get('/match', (req, res) => {
-    const [dateInput, team1Input, team2Input] = [req.query.date, req.query.team1, req.query.team2];
+    let [dateInput, team1Input, team2Input] = [req.query.date, req.query.team1, req.query.team2];
     const date = moment(dateInput, 'YYYY-MM-DD', true);
-    
+    let carlosI = -1;
+    const change = !team1Input;
+
     if (!date.isValid()) {
         return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD.' });
     }
   
     // Find the closest match date
-    const closestMatch = data.reduce((closest, entry) => {
+    const closestMatch = data.reduce((closest, entry, i) => {
         const entryDate = entry.match_date;
         const closestDate = closest.match_date;
-        return Math.abs(entryDate - date) < Math.abs(closestDate - date) ? entry : closest;
+
+        if (Math.abs(entryDate - date) < Math.abs(closestDate - date)) {
+            if (change) {
+                team1Input = entry.team_1;
+                team2Input = entry.team_2;
+            }
+            carlosI = i;
+            return entry;
+        } else {
+            return closest;
+        }
     });
   
     if (!closestMatch) {
@@ -123,19 +140,27 @@ app.get('/match', (req, res) => {
     const team2WinProbability = 1 - team1WinProbability;
   
     // Respond with the calculated odds
-    res.json({
-        date: closestMatch.match_date.format('YYYY-MM-DD'),
-        team1: {
-            name: team1Input,
-            elo: Math.round(team1Elo),
-            win_probability: team1WinProbability
-        },
-        team2: {
-            name: team2Input,
-            elo: Math.round(team2Elo),
-            win_probability: team2WinProbability
+    exec(`python3 carlos.py ${carlosI}`, (err, stdout, stderr) => {
+        if (!(stdout === 't1' || stdout === 't2')) {
+            return console.log("bigodou legal");
         }
-    });
+        
+        res.json({
+            date: closestMatch.match_date.format('YYYY-MM-DD'),
+            team1: {
+                name: team1Input,
+                elo: Math.round(team1Elo),
+                win_probability: team1WinProbability,
+                ai_winner: stdout === 't1'
+            },
+            team2: {
+                name: team2Input,
+                elo: Math.round(team2Elo),
+                win_probability: team2WinProbability,
+                ai_winner: stdout === 't2'
+            }
+        });
+    })
 });
 
 app.get('/metrics', (req, res) => {
