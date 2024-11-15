@@ -2,6 +2,7 @@ const express = require('express');
 const csv = require('csv-parser');
 const fs = require('fs');
 const moment = require('moment');
+const stats = require('simple-statistics');
 require('dotenv').config();
 
 const app = express();
@@ -9,6 +10,20 @@ const PORT = process.env.PORT || 3000;
 const data = [];
 
 const calculateWinProbability = (elo1, elo2) => 1 / (1 + Math.pow(10, (elo2 - elo1) / 400));
+
+const calculateMetrics = eloValues => ({
+    media: stats.mean(eloValues),
+    mediana: stats.median(eloValues),
+    moda: stats.mode(eloValues),
+    dp: stats.standardDeviation(eloValues),
+    cv: stats.standardDeviation(eloValues),
+    minimo: Math.min(...eloValues),
+    q1: stats.quantile(eloValues, 0.25),
+    q3: stats.quantile(eloValues, 0.75),
+    maximo: Math.max(...eloValues),
+    iq: stats.interquartileRange(eloValues),
+    amplitude: Math.max(...eloValues) - Math.min(...eloValues)
+});
 
 // Load and parse the CSV file once on startup
 fs.createReadStream('csgo_data.csv')
@@ -100,15 +115,55 @@ app.get('/match', (req, res) => {
         date: closestMatch.match_date.format('YYYY-MM-DD'),
         team1: {
             name: team1Input,
-            elo: team1Elo,
+            elo: Math.round(team1Elo),
             win_probability: team1WinProbability
         },
         team2: {
             name: team2Input,
-            elo: team2Elo,
+            elo: Math.round(team2Elo),
             win_probability: team2WinProbability
         }
     });
+});
+
+app.get('/metrics', (req, res) => {
+    const { team, date_start, date_end } = req.query;
+    
+    if (!team || !date_start || !date_end) {
+      return res.status(400).json({ error: 'Please provide team, date_start, and date_end query parameters.' });
+    }
+  
+    const startDate = moment(date_start, 'YYYY-MM-DD', true);
+    const endDate = moment(date_end, 'YYYY-MM-DD', true);
+  
+    if (!startDate.isValid() || !endDate.isValid()) {
+        return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD for date_start and date_end.' });
+    }
+  
+    // Filter data by date range
+    const filteredData = data.filter(entry => {
+        const matchDate = entry.match_date;
+        return matchDate.isBetween(startDate, endDate, 'day', '[]'); // Include start and end dates
+    });
+    
+    const eloValues = [];
+    filteredData.forEach(entry => {
+        const teamRank = Math.ceil((Object.values(entry).findIndex(val => val === team) + 1) / 2);
+        
+        if (teamRank !== 0) {
+            eloValues.push(Number(entry[`top_${teamRank}_elo`]));
+        }
+    });
+  
+    if (eloValues.length === 0) {
+        return res.status(404).json({ error: `No ELO data found for team ${team} in the specified date range.` });
+    }
+  
+    // Calculate metrics
+    const metrics = calculateMetrics(eloValues);
+    
+    // Respond with the metrics
+    res.json({ team, date_start, date_end, metrics });
   });
 
 // Start the server
