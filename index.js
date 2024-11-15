@@ -137,7 +137,6 @@ app.get('/match', (req, res) => {
   
     // Respond with the calculated odds
     exec(`python3 carlos.py ${carlosI}`, (err, stdout, stderr) => {
-        console.log({err, stderr, stdout})
         if (!(stdout === 't1' || stdout === 't2')) {
             return console.log("bigodou legal");
         }
