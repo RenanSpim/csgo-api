@@ -32,25 +32,33 @@ app.get('/rankings', (req, res) => {
 
     // Find the closest date data entry
     const closestMatch = data.reduce((closest, entry) => {
-        const entryDate = entry.match_date;
-        const closestDate = closest.match_date;
-        return Math.abs(entryDate - date) < Math.abs(closestDate - date) ? entry : closest;
+        const entryDate = moment(entry.match_date, 'YYYY-MM-DD');
+        return Math.abs(entryDate.diff(date)) < Math.abs(moment(closest.match_date, 'YYYY-MM-DD').diff(date)) ? entry : closest;
     });
 
     if (!closestMatch) {
         return res.status(404).json({ error: 'No data found for the given date.' });
     }
 
-    // Prepare the rankings response
-    const rankings = {};
+    // Prepare the rankings as an array of objects
+    const rankings = [];
     for (let i = 1; i <= 50; i++) {
-        rankings[`top_${i}`] = {
-            team: closestMatch[`top_${i}`],
-            elo: closestMatch[`top_${i}_elo`]
-        };
+        const team = closestMatch[`top_${i}`];
+        const elo = closestMatch[`top_${i}_elo`];
+        if (team && elo) {
+            rankings.push({
+                team,
+                elo,
+                top: i
+            });
+        }
     }
 
-    res.json({ date: closestMatch.match_date.format('YYYY-MM-DD'), rankings });
+    // Send the response
+    res.json({
+        date: moment(closestMatch.match_date).format('YYYY-MM-DD'),
+        teams: rankings,
+    });
 });
 
 app.get('/match', (req, res) => {
