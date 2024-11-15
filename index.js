@@ -6,10 +6,6 @@ const stats = require('simple-statistics');
 const { exec } = require('child_process');
 require('dotenv').config();
 
-const getCarlos = matchI => {
-    
-};
-
 const app = express();
 const PORT = process.env.PORT || 3000;
 const data = [];
@@ -97,7 +93,7 @@ app.get('/match', (req, res) => {
     let [dateInput, team1Input, team2Input] = [req.query.date, req.query.team1, req.query.team2];
     const date = moment(dateInput, 'YYYY-MM-DD', true);
     let carlosI = -1;
-    const change = !team1Input;
+    const change = !team1Input || !team2Input;
 
     if (!date.isValid()) {
         return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD.' });
@@ -141,6 +137,7 @@ app.get('/match', (req, res) => {
   
     // Respond with the calculated odds
     exec(`python3 carlos.py ${carlosI}`, (err, stdout, stderr) => {
+        console.log({stdout})
         if (!(stdout === 't1' || stdout === 't2')) {
             return console.log("bigodou legal");
         }
@@ -172,7 +169,7 @@ app.get('/metrics', (req, res) => {
   
     const startDate = moment(date_start, 'YYYY-MM-DD', true);
     const endDate = moment(date_end, 'YYYY-MM-DD', true);
-  
+    
     if (!startDate.isValid() || !endDate.isValid()) {
         return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD for date_start and date_end.' });
     }
