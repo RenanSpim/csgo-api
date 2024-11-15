@@ -8,10 +8,12 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 const data = [];
+const games = [];
 
 const calculateWinProbability = (elo1, elo2) => 1 / (1 + Math.pow(10, (elo2 - elo1) / 400));
 
 const calculateMetrics = eloValues => ({
+    n: eloValues.length,
     media: stats.mean(eloValues),
     mediana: stats.median(eloValues),
     moda: stats.mode(eloValues),
@@ -26,6 +28,16 @@ const calculateMetrics = eloValues => ({
 });
 
 // Load and parse the CSV file once on startup
+fs.createReadStream('csgo_games.csv')
+    .pipe(csv())
+    .on('data', (row) => {
+        row.match_date = moment(row.match_date, 'YYYY-MM-DD'); // Parse date format
+        games.push(row);
+    })
+    .on('end', () => {
+        console.log('CSV file successfully processed');
+    });
+
 fs.createReadStream('csgo_data.csv')
     .pipe(csv())
     .on('data', (row) => {
@@ -140,21 +152,15 @@ app.get('/metrics', (req, res) => {
         return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD for date_start and date_end.' });
     }
   
-    // Filter data by date range
-    const filteredData = data.filter(entry => {
-        const matchDate = entry.match_date;
-        return matchDate.isBetween(startDate, endDate, 'day', '[]'); // Include start and end dates
+    const filteredData = games.filter(match => {
+        const { match_date, team_1, team_2 } = match;
+        return match_date.isBetween(startDate, endDate, 'day', '[]') && (team_1 === team || team === team_2)
+    });
+    const eloValues = filteredData.map(entry => {
+        const { team_1, team_1_elo, team_2_elo } = entry;
+        return Math.round(Number(team_1 === team ? team_1_elo : team_2_elo))
     });
     
-    const eloValues = [];
-    filteredData.forEach(entry => {
-        const teamRank = Math.ceil((Object.values(entry).findIndex(val => val === team) + 1) / 2);
-        
-        if (teamRank !== 0) {
-            eloValues.push(Number(entry[`top_${teamRank}_elo`]));
-        }
-    });
-  
     if (eloValues.length === 0) {
         return res.status(404).json({ error: `No ELO data found for team ${team} in the specified date range.` });
     }
