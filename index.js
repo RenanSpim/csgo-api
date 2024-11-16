@@ -101,13 +101,14 @@ app.get('/match', (req, res) => {
   
     // Find the closest match date
     const closestMatch = data.reduce((closest, entry, i) => {
+        const { team_1, team_2 } = entry;
         const entryDate = entry.match_date;
         const closestDate = closest.match_date;
 
         if (Math.abs(entryDate - date) < Math.abs(closestDate - date)) {
             if (change) {
-                team1Input = entry.team_1;
-                team2Input = entry.team_2;
+                team1Input = team_1;
+                team2Input = team_2;
             }
             carlosI = i;
             return entry;
@@ -137,12 +138,14 @@ app.get('/match', (req, res) => {
   
     // Respond with the calculated odds
     exec(`python3 carlos.py ${carlosI}`, (err, stdout, stderr) => {
+        const { t1_points, t2_points, team_1, team_2 } = games[carlosI];
         if (!(stdout === 't1' || stdout === 't2')) {
             return console.log("bigodou legal");
         }
         
         res.json({
             date: closestMatch.match_date.format('YYYY-MM-DD'),
+            winner: (team_1 === team1Input && team_2 === team2Input) ? t1_points > t2_points ? team_1 : team_2 : null,
             team1: {
                 name: team1Input,
                 elo: Math.round(team1Elo),
