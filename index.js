@@ -138,14 +138,14 @@ app.get('/match', (req, res) => {
   
     // Respond with the calculated odds
     exec(`python3 carlos.py ${carlosI}`, (err, stdout, stderr) => {
-        const { t1_points, t2_points, team_1, team_2 } = games[carlosI];
+        const { t1_points, t2_points, team_1, team_2, match_date } = games[carlosI];
         if (!(stdout === 't1' || stdout === 't2')) {
             return console.log("bigodou legal");
         }
         
         res.json({
             date: closestMatch.match_date.format('YYYY-MM-DD'),
-            winner: (team_1 === team1Input && team_2 === team2Input) ? t1_points > t2_points ? team_1 : team_2 : null,
+            winner: (match_date === dateInput && team_1 === team1Input && team_2 === team2Input) ? t1_points > t2_points ? team_1 : team_2 : null,
             team1: {
                 name: team1Input,
                 elo: Math.round(team1Elo),
