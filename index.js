@@ -140,12 +140,13 @@ app.get('/match', (req, res) => {
     exec(`python3 carlos.py ${carlosI}`, (err, stdout, stderr) => {
         const { t1_points, t2_points, team_1, team_2, match_date } = games[carlosI];
         if (!(stdout === 't1' || stdout === 't2')) {
+            console.log({err, stdout, stderr})
             return console.log("bigodou legal");
         }
         
         res.json({
             date: closestMatch.match_date.format('YYYY-MM-DD'),
-            winner: (match_date === dateInput && team_1 === team1Input && team_2 === team2Input) ? t1_points > t2_points ? team_1 : team_2 : null,
+            winner: ((match_date.format('YYYY-MM-DD') === dateInput && team_1 === team1Input && team_2 === team2Input) || change) ? t1_points > t2_points ? team_1 : team_2 : null,
             team1: {
                 name: team1Input,
                 elo: Math.round(team1Elo),
