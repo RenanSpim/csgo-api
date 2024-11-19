@@ -137,16 +137,17 @@ app.get('/match', (req, res) => {
     const team2WinProbability = 1 - team1WinProbability;
   
     // Respond with the calculated odds
-    exec(`python3 carlos.py ${carlosI}`, (err, stdout, stderr) => {
-        const { t1_points, t2_points, team_1, team_2, match_date } = games[carlosI];
+    const { t1_points, t2_points, team_1, team_2, match_date } = games[carlosI];
+    const isFicticional = !((match_date.format('YYYY-MM-DD') === dateInput && team_1 === team1Input && team_2 === team2Input) || change);
+    
+    exec(`python3 sim_matches.py ${team1Input} ${team2Input} ${dateInput}`, (err, stdout, stderr) => {
         if (!(stdout === 't1' || stdout === 't2')) {
             console.log({err, stdout, stderr})
             return console.log("bigodou legal");
         }
-        
         res.json({
             date: closestMatch.match_date.format('YYYY-MM-DD'),
-            winner: ((match_date.format('YYYY-MM-DD') === dateInput && team_1 === team1Input && team_2 === team2Input) || change) ? t1_points > t2_points ? team_1 : team_2 : null,
+            winner: !isFicticional ? (t1_points > t2_points ? team_1 : team_2) : null,
             team1: {
                 name: team1Input,
                 elo: Math.round(team1Elo),
